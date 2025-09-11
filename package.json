@@ -12,6 +12,9 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "dev":"npm --watch index.js"
+    "dev": "npm --watch index.js"
+  },
+  "devDependencies": {
+    "prettier": "^3.6.2"
   }
 }
