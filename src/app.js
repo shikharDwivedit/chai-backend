@@ -3,6 +3,7 @@ import cookieParser from "cookie-parser";
 import cors from "cors";
 
 
+const app = express();
 app.use(cors({
     origin:process.env.CORS_ORIGIN,
     credentials:true
@@ -18,8 +19,12 @@ app.use(express.urlencoded({limit:"16kb"}))
 app.use(express.static("public"))
 app.use(cookieParser())
 
-const app = express();
+// routes import 
+import userRouter from './routes/user.routes.js'
 
+// As our routes is in different location hence we can't use app.get
+// routes decalartion
+app.use("/api/v1/users",userRouter);
 
 
 export {app}
