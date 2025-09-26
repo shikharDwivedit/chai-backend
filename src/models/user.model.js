@@ -1,5 +1,5 @@
 import mongoose, { Schema, model } from "mongoose";
-import pkg from "jsonwebtoken"; const { JsonWebTokenError } = pkg;
+import jwt from "jsonwebtoken";
 import bcrypt from "bcrypt"
 
 
@@ -67,6 +67,7 @@ if(!this.isModified("password")) return next();
 Let's say somebody changes their avatar then save it, so this middleware will run again cause uncesseary hashing hence to prevent it we add
 a condition that if the password isn't modified then move onto next don't exectue the code below*/
 //Point to note .pre, .method have access to the document or instance being saved and this is pointer pointing to that specific document hence they are being used freely inside the function
+
 userSchema.pre("save",async function(next) {
     if(!this.isModified("password")) return next();
     this.password = await bcrypt.hash(this.password,10);       
@@ -77,8 +78,8 @@ userSchema.methods.isPasswordCorrect = async function(password){
     return await bcrypt.compare(password,this.password);
 }
 
-userSchema.methods.generateAccessToken = function(){
-    JsonWebTokenError.sign(     //This function too has access to the document
+userSchema.methods.generateAccessToken = function() {
+    return jwt.sign(     //This function too has access to the document
         {
             _id:this._id,
             email:this.email,
@@ -93,7 +94,7 @@ userSchema.methods.generateAccessToken = function(){
 }
 
 userSchema.methods.generateRefreshToken = function(){
-    JsonWebTokenError.sign(     //This function too has access to the document
+    return jwt.sign(     //This function too has access to the document
         {
             _id:this._id,
         },
@@ -103,6 +104,6 @@ userSchema.methods.generateRefreshToken = function(){
         }
     )
 }
-userSchema.methods.generateRefreshToken = function(){}
+
 
 export const User = model("User", userSchema);
