@@ -4,7 +4,7 @@ import { User } from "../models/user.model.js";
 import { uploadFileOnCloudinary } from "../utils/cloudinary.js";
 import ApiResponse from "../utils/ApiResponse.js";
 import jwt from "jsonwebtoken";
-
+import mongoose from "mongoose";
 
 const registerUser = asyncHandler(async (req, res) => {
   // Steps taken to register a user
@@ -157,7 +157,7 @@ const logoutUser = asyncHandler(async(req,res) => {
     req.user._id,
     {
       $set:{
-        refreshToken:undefined
+        refreshToken:1   //this removes the field(refresh token) from the header
       }
     },
     {
@@ -177,7 +177,7 @@ const logoutUser = asyncHandler(async(req,res) => {
   .json(new ApiResponse(200,{},"User logged out successfully."))
 })
 
-const refreshTokens = asyncHandler(async(req,res)=>{
+const refreshTokens = asyncHandler(async(req,res) => {
   // Fetch the the user refreshToken and match it in database
   const incomingRefreshToken = req.cookies.refreshToken || req.body.refreshToken;
   if(!incomingRefreshToken){
@@ -220,9 +220,182 @@ const refreshTokens = asyncHandler(async(req,res)=>{
  } catch (error) {
   throw new ApiError(401,error?.message||"Invalid refresh Token.")
  }
-
 })
 
+const ChangePassword = asyncHandler(async(req,res) => {
+
+  const {oldpassword, newpassword} = req.body;
+
+  const userid = req.user?._id;
+  const user = await User.findById(userid);
+  const isPasswordCorrect = await user.isPasswordCorrect(oldpassword);
+  if(!isPasswordCorrect){
+    throw new ApiError(401,"Old password isn't correct.");
+  }
+  user.password = newpassword
+  await user.save({validateBeforeSave:false});
+
+  return res
+  .status(200)
+  .json(new ApiResponse(200,{},"Password changed successfully."))
+})
+
+const getCurrentUser = asyncHandler(async(req,res) => {
+
+  return res
+  .status(200)
+  .json(new ApiResponse(200,req.user,"Current user fetched successfully."))
+})
+ 
+const updateUserDetails = asyncHandler(async (req,res) => {
+  const {fullName,email} = req.body;
+
+  if(!(fullName || email)){
+    throw new ApiError(401,"All fields are required.");
+  }
+
+  const user =  await User.findByIdAndUpdate(
+    req.user?._id,
+    {
+      $set:{
+        fullName:fullName,
+        email
+      }
+    },
+    {new:true}
+  ).select("-password")
+
+  return res
+  .status(200)
+  .json(new ApiResponse(200,user,"Account details updated successfully."))
+})
+
+const getUserChannelProfile = asyncHandler(async (req,res) => {
+  const {username} = req.params
+
+  if(!username.trim()){
+    throw new ApiError(401,"Invalid request, User does not exist.")
+  }
 
 
-export { registerUser, loginUser, logoutUser, refreshTokens };
+  const userChannel = await User.aggregate([
+    {
+      $match:{
+        username:username?.toLowerCase()    //Finding the desired channel
+      }
+    },
+    {
+      $lookup:{       //looking for subscbriber of that channel
+        from:"subscriptions",     // look in the subscript collection
+        localField:"_id",         // id of current user {aka the userName which is channel in our case}
+        foreignField:"channel",    // find all the document in which channel = userid
+        as:"subscribers"
+      }
+    },
+        {
+      $lookup:{       
+        from:"subscriptions",     
+        localField:"_id",        
+        foreignField:"subscriber",    
+        as:"subscribedTo"
+      }
+    },
+    {
+      $addFields:{
+          subscriberCount:{
+            $size:"$subscribers"    // adding the subscribers field to get number of subscriber
+          },
+          ChannelSubscribedToCount:{
+            $size:"$subscribedTo"   // finding the number to whom we have subscribed.
+          },
+          isSubscribed:{      // checking if we have subscribed to a xyz channel or not
+            $cond:{
+              if: {$in:[req.user?._id,"$subscribers.subscriber"]},
+              then:true,
+              else:false
+            }
+          }
+      }
+    },
+    {
+      $project: {
+        fullName: 1,
+        userName: 1,
+        subscriberCount: 1,
+        ChannelSubscribedToCount: 1,
+        isSubscribed: 1,
+        avatar: 1,
+        coverImage: 1,
+      }      
+    }
+  ])
+
+  //note: userChannel is just an array with 1 object because there will only be one channel with a unique user_id hence if if len == 0 then it means channel doesn't exists
+  console.log(userChannel)
+
+  if(!userChannel?.length){
+    throw new ApiError(404,"This channel doesn't exists.")
+  }
+
+  return res
+  .status(200)
+  .json(
+    new ApiResponse(200,userChannel[0],"User channel fetched succesfully.")
+  )
+})
+
+const getWatchHistory = asyncHandler(async (req,res) => {
+  const user = await User.aggregate([
+    {
+      $match:{
+        _id: new mongoose.Types.ObjectId(req.user._id)
+      }
+    },
+    {
+      $lookup:{
+        from:"videos",
+        localField:"watchHistory",
+        foreignField:"_id",
+        as:"watchHistory",
+        pipeline:[
+          {
+            $lookup: {
+              from: "users",
+              localField: "owner",
+              foreignField: "_id",
+              as:"owner",
+              pipeline:[
+                {
+                  $project: {
+                    fullName: 1,
+                    username:1,
+                    avatar: 1
+                  }
+                }
+              ]
+            
+            }
+          },
+          {
+            $addFields:{
+              owner:{
+                $first:"$owner"
+              }
+            }
+          }
+        ]
+      }
+    }
+  ])
+
+  return res
+  .status(200)
+  .json(
+    new ApiResponse(200,user[0].watchHistory,"Watch history fetched successfully.")
+  )
+})
+
+export { registerUser, loginUser, logoutUser, refreshTokens,
+         ChangePassword, getCurrentUser, updateUserDetails, getUserChannelProfile,
+         getWatchHistory
+ };
