@@ -21,10 +21,11 @@ app.use(cookieParser())
 
 // routes import 
 import userRouter from './routes/user.routes.js'
-
+import router from "./routes/video.routes.js";
 // As our routes is in different location hence we can't use app.get
 // routes decalartion
 app.use("/api/v1/users",userRouter);
+app.use("/api/v1/videos",router);
 
 
 export {app}

@@ -1,9 +1,9 @@
 import mongoose, { Schema, model } from "mongoose";
 import mongooseAggregatePaginate from "mongoose-aggregate-paginate-v2";
-
+import { publishAVideo } from "../controllers/video.controller.js";
 const videoSchema = new Schema(
     {
-        videoFile: {
+        videofile: {
             type: String,
             required: true
         },
