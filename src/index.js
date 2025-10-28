@@ -1,16 +1,16 @@
 // require('dotenv').config({path: './env'})      // This just breaks the consistency from import to require
 import dotenv from "dotenv"
 import connectDB from "./db/index.js";
-
+import {app} from "./app.js"
 dotenv.config({
-    path:"./env"
+    path:"./.env"
 })
 connectDB()
 .then(() =>{
     //Catching error before listening
     app.on("error", (error) =>{
         console.log("Error: ",error);
-        throw error
+        throw new error("Something is wrong in index")
     })
     app.listen(process.env.PORT|| 8000, ()=>{
         console.log(`Server is listening on port ${process.env.PORT}`);

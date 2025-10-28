@@ -1,11 +1,11 @@
-const asynchandler = (requestHandler) =>{
-    (req,res,next)=>{
+const asyncHandler = (requestHandler) =>{
+    return (req,res,next)=>{
         Promise.resolve(requestHandler(req,res,next)).catch((error) => next(error))
     }
 }
 
 
-export {asynchandler}
+export {asyncHandler}
 
 // const asynchandler = () => {}
 // const asynchandler = (func) => () => {}  !!Here we are passing func to another function, like this (func) => {() =>{}}   This is higher order function
