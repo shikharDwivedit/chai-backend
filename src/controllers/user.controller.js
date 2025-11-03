@@ -5,6 +5,10 @@ import { uploadFileOnCloudinary } from "../utils/cloudinary.js";
 import ApiResponse from "../utils/ApiResponse.js";
 import jwt from "jsonwebtoken";
 import mongoose from "mongoose";
+import { OAuth2Client } from "google-auth-library";
+
+
+
 
 const registerUser = asyncHandler(async (req, res) => {
   // Steps taken to register a user
@@ -149,6 +153,55 @@ const loginUser = asyncHandler(async (req, res) => {
         "User logged in Successfully."
       )
     )
+
+})
+const generateUsername = async (name) => {
+  let base = name.toLowerCase().replace(/ /g, "-"); // rohan-sharma
+  let username = base;
+  let counter = 1;
+
+  while (await User.findOne({ username })) {
+    username = `${base}-${counter}`; // rohan-sharma-1, rohan-sharma-2
+    counter++;
+  }
+  return username;
+};
+
+const googlesingup = asyncHandler(async(req,res)=>{
+  const {token} = req.body;
+   
+  const ticket = await client.verifyIdToken({
+    idToken:token,
+    audience:process.env.GOOGLE_CLIENT_ID
+  });
+
+  const payload = ticket.getPayload();
+  const { email, name, picture } = payload;
+
+  let user = await User.findOne({
+    email
+  });
+
+  if(!user){
+    const username = await generateUsername(name);
+    const user = await User.create({
+      username:username,
+      fullName:name,
+      email,
+      avatar:picture,
+      password:""
+    })
+    const createdUser = await User.findById(user._id).select(
+      "-password -refreshToken"
+    );
+    if (!createdUser) {
+      throw new ApiError(500, "Server Error unable to create profile at the moment.");
+    }
+  }
+
+  return res.status(201).json(
+    new ApiResponse(200, createdUser, "Registered Successfully.")
+  )
 
 })
 
@@ -398,5 +451,5 @@ const getWatchHistory = asyncHandler(async (req, res) => {
 export {
   registerUser, loginUser, logoutUser, refreshTokens,
   ChangePassword, getCurrentUser, updateUserDetails, getUserChannelProfile,
-  getWatchHistory
+  getWatchHistory, googleLogin
 };
