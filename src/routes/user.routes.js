@@ -24,6 +24,7 @@ router.route("/register").post(
 
 router.route("/login").post(loginUser)
 //secured routes
+router.route("/googlelogin").post(googleLogin)
 router.route("/logout").post(verifyJWT,logoutUser)
 router.route("/refreshTokens").post(refreshTokens)
 
