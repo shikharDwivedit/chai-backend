@@ -5,7 +5,8 @@ import { uploadFileOnCloudinary } from "../utils/cloudinary.js";
 import ApiResponse from "../utils/ApiResponse.js";
 import jwt from "jsonwebtoken";
 import mongoose from "mongoose";
-import { OAuth2Client } from "google-auth-library";
+import { validateEmail } from "../utils/validateEmail.js";
+import isEmail from "validator/lib/isEmail.js";
 
 
 
@@ -31,6 +32,10 @@ const registerUser = asyncHandler(async (req, res) => {
   ) {
     throw new ApiError(400, "All fields are required.");
   }
+  const isEmailValid = validateEmail(email);
+
+  if(!isEmailValid){
+    throw new ApirError(400,"Email is not valid");
 
   const existeduser = await User.findOne({
     $or: [{ email }, { username }],
@@ -451,5 +456,5 @@ const getWatchHistory = asyncHandler(async (req, res) => {
 export {
   registerUser, loginUser, logoutUser, refreshTokens,
   ChangePassword, getCurrentUser, updateUserDetails, getUserChannelProfile,
-  getWatchHistory, googleLogin
+  getWatchHistory,googlesingup
 };
