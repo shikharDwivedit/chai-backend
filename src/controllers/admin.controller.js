@@ -1,3 +1,4 @@
+import { Video } from "../models/video.model.js"
 import mongoose, { isValidObjectId } from "mongoose"
 import { Admin } from "../models/admin.model.js"
 import {ApiError} from "../utils/ApiError.js"
@@ -32,9 +33,41 @@ const registerAsAdmin = asyncHandler(async (req,res)=>{
     .json(new ApiResponse(2300,newAdmin,"Admin registered successfully."))
 })
 
+// these are just function to remove the video or comment if needed
 
 const deleteVideo = asyncHandler(async (req,res) => {
+    const {videoId} = req.params;
 
+    if(!isValidObjectId(videoId)){
+        throw new ApiError(400,"Video id incorrect")
+    }
+
+    const videoExist = await Video.findById(videoId)
+    if(!videoExist){
+        throw new ApiError(400,"This video doesn't exist")
+    }   
+    await videoExist.remove();
+
+    return res
+    .status(200)
+    .json(new ApiResponse(200, null, "Video deleted successfully."));
 })
 
-export {registerAsAdmin};
+const deleteComment= asyncHandler(async (req,res) => {
+    const {CommentId} = req.params;
+    if(!isValidObjectId(CommentId)){
+        throw new ApiError(400,"Comment id incorrect")
+    }   
+    const commentExist = await Comment.findById(CommentId)
+    if(!commentExist){
+        throw new ApiError(400,"This comment doesn't exist")
+    }   
+    await commentExist.remove();
+
+    return res
+    .status(200)
+    .json(new ApiResponse(200, null, "Comment deleted successfully."));
+})
+
+
+export {registerAsAdmin, deleteComment, deleteVideo};
