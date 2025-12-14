@@ -7,7 +7,9 @@ import jwt from "jsonwebtoken";
 import mongoose from "mongoose";
 import { validateEmail } from "../utils/validateEmail.js";
 import isEmail from "validator/lib/isEmail.js";
-
+import { createEmailOtp, generateOtp, verifyEmailOtp } from "../services/emailOtp.service.js";
+import { sendOtpMail } from "../utils/mailer.js";
+import { EmailOtp } from "../models/emailOtp.model.js";
 
 
 
@@ -35,8 +37,8 @@ const registerUser = asyncHandler(async (req, res) => {
   const isEmailValid = validateEmail(email);
 
   if(!isEmailValid){
-    throw new ApirError(400,"Email is not valid");
-
+    throw new ApiError(400,"Email is not valid");
+  }
   const existeduser = await User.findOne({
     $or: [{ email }, { username }],
   });
@@ -68,28 +70,49 @@ const registerUser = asyncHandler(async (req, res) => {
     throw new ApiError(500, "Avatar image wasn't uploaded succesfully.");
   }
 
-  //creating entry in db
-  const user = await User.create({
-    fullName,
-    avatar: avatar.url,
-    coverImage: coverImage?.url || "",
-    email,
-    password,
-    username: username.toLowerCase()
-  });
+    let user;
 
-  // we used select because we further need to return a response
+  try {
+    // ===== CREATE USER =====
+    user = await User.create({
+      fullName,
+      avatar: avatar.url,
+      coverImage: coverImage?.url || "",
+      email,
+      password,
+      username: username.toLowerCase(),
+      isVerified: false
+    });
+
+    // ===== OTP FLOW =====
+    const otp = generateOtp();
+    await createEmailOtp(user._id, otp);
+    await sendOtpMail(user.email, otp);
+
+  } catch (error) {
+    // 🔥 ROLLBACK USER IF ANY STEP FAILS
+    if (user?._id) {
+      await User.findByIdAndDelete(user._id);
+    }
+
+    throw new ApiError(
+      500,
+      "Registration failed. Unable to send verification email."
+    );
+  }
+
+  // ===== SAFE RESPONSE =====
   const createdUser = await User.findById(user._id).select(
     "-password -refreshToken"
   );
-  if (!createdUser) {
-    throw new ApiError(500, "Server Error unable to create profile at the moment.");
-  }
 
   return res.status(201).json(
-    new ApiResponse(200, createdUser, "Registered Successfully.")
-  )
-
+    new ApiResponse(
+      201,
+      createdUser,
+      "Registered successfully. Please verify your email."
+    )
+  );
 });
 
 const generateAccessAndRefreshToken = async (userId) => {
@@ -128,7 +151,9 @@ const loginUser = asyncHandler(async (req, res) => {
   if (!user) {
     throw new ApiError(404, "User doesn't exists please signup.")
   }
-
+  if (!user.isVerified) {
+    throw new ApiError(403, "Please verify your email before logging in");
+  }
   // note we used user not User because the method metioned below is with our mongodb object not mongoose
   const isPasswordValid = await user.isPasswordCorrect(password);
   if (!isPasswordValid) {
@@ -159,7 +184,7 @@ const loginUser = asyncHandler(async (req, res) => {
       )
     )
 
-})
+});
 const generateUsername = async (name) => {
   let base = name.toLowerCase().replace(/ /g, "-"); // rohan-sharma
   let username = base;
@@ -453,8 +478,68 @@ const getWatchHistory = asyncHandler(async (req, res) => {
     )
 })
 
+
+
+
+/* ============================
+   VERIFY EMAIL OTP
+   ============================ */
+const verifyEmail = asyncHandler(async (req, res) => {
+  const { userId, otp } = req.body;
+
+  if (!userId || !otp) {
+    throw new ApiError(400, "User ID and OTP are required");
+  }
+
+  const user = await User.findById(userId);
+  if (!user) {
+    throw new ApiError(404, "User not found");
+  }
+
+  if (user.isVerified) {
+    throw new ApiError(400, "Email already verified");
+  }
+
+  const isValid = await verifyEmailOtp(userId, otp);
+  if (!isValid) {
+    throw new ApiError(400, "Invalid or expired OTP");
+  }
+
+  user.isVerified = true;
+  await user.save();
+
+  await EmailOtp.deleteMany({ user: userId });
+
+  return res.status(200).json(
+    new ApiResponse(200, null, "Email verified successfully")
+  );
+});
+
+/* ============================
+   RESEND EMAIL OTP  👈 THIS ONE
+   ============================ */
+const resendEmailOtp = asyncHandler(async (req, res) => {
+  const { userId } = req.body;
+
+  const user = await User.findById(userId);
+  if (!user) {
+    throw new ApiError(404, "User not found");
+  }
+
+  if (user.isVerified) {
+    throw new ApiError(400, "Email already verified");
+  }
+
+  const otp = generateOtp();
+  await createEmailOtp(userId, otp);
+  await sendOtpMail(user.email, otp);
+
+  return res.status(200).json(
+    new ApiResponse(200, null, "OTP resent successfully")
+  );
+});
 export {
   registerUser, loginUser, logoutUser, refreshTokens,
   ChangePassword, getCurrentUser, updateUserDetails, getUserChannelProfile,
-  getWatchHistory,googlesingup
+  getWatchHistory,googlesingup, resendEmailOtp,verifyEmail
 };

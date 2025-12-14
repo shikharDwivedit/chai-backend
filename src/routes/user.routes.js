@@ -1,9 +1,10 @@
 import { Router } from "express";
-import { ChangePassword, getCurrentUser, getUserChannelProfile, getWatchHistory, loginUser, logoutUser, refreshTokens, registerUser, updateUserDetails } from "../controllers/user.controller.js";
+import { ChangePassword, getCurrentUser, getUserChannelProfile, getWatchHistory, loginUser, 
+    logoutUser, refreshTokens, registerUser, updateUserDetails,verifyEmail,resendEmailOtp } from "../controllers/user.controller.js";
 import {upload} from '../middleware/multer.middleware.js'
 import { verifyJWT } from "../middleware/auth.middleware.js";
 import { updateUserAvatar, updateUserCoverImage } from "../controllers/file.controller.js";
-
+import { loginRateLimiter } from "../middleware/loginRateLimiter.middleware.js";
 const router = Router()
 
 router.route("/register").post(
@@ -21,10 +22,10 @@ router.route("/register").post(
 
     registerUser
 )
-
-router.route("/login").post(loginUser)
+router.post("/verify-email", verifyEmail);
+router.post("/resend-otp", resendEmailOtp);
+router.route("/login").post(loginRateLimiter,loginUser)
 //secured routes
-router.route("/googlelogin").post(googleLogin)
 router.route("/logout").post(verifyJWT,logoutUser)
 router.route("/refreshTokens").post(refreshTokens)
 
