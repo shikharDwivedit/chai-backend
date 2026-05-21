@@ -69,5 +69,10 @@ const deleteComment= asyncHandler(async (req,res) => {
     .json(new ApiResponse(200, null, "Comment deleted successfully."));
 })
 
+// TODO: add reviewReports()
+// TODO: add suspendUser()
+// TODO: add restoreDeletedVideo()
+// TODO: add moderateVideoFlags()
+
 
 export {registerAsAdmin, deleteComment, deleteVideo};

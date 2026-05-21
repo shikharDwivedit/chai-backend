@@ -206,4 +206,10 @@ const togglePublishStatus = asyncHandler(async (req, res) => {
         .json(new ApiResponse(200, videoExist.isPublished, "Successfully changed the status."))
 })
 
+// TODO: add getTrendingVideos()
+// TODO: add getRecommendedVideos()
+// TODO: add getSubscribedFeedVideos()
+// TODO: add searchVideos()
+// TODO: add getVideoAnalytics()
+
 export { publishAVideo, getVideoById, updateVideo, deleteVideo, togglePublishStatus, getAllVideos };

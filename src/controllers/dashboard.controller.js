@@ -89,6 +89,11 @@ const getChannelVideos = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200,UserVideos,"All videos of current user fetched succesfully."))
 })
 
+// TODO: add getAudienceAnalytics()
+// TODO: add getUploadPerformance()
+// TODO: add getWatchTimeSummary()
+// TODO: add getSubscriberGrowth()
+
 export {
     getChannelStats,
     getChannelVideos

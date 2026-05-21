@@ -178,6 +178,11 @@ const updatePlaylist = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200,playlist,"Fields updated successfully."))
 })
 
+// TODO: add reorderPlaylistVideos()
+// TODO: add sharePlaylist()
+// TODO: add makePlaylistPublic()
+// TODO: add pinPlaylistToChannel()
+
 export {
     createPlaylist,
     getUserPlaylists,

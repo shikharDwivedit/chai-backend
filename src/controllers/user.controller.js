@@ -538,6 +538,12 @@ const resendEmailOtp = asyncHandler(async (req, res) => {
     new ApiResponse(200, null, "OTP resent successfully")
   );
 });
+
+// TODO: add getLikedVideos()
+// TODO: add getSubscriptions()
+// TODO: add updateChannelHandle()
+// TODO: add updateNotificationSettings()
+// TODO: add deleteUserAccount()
 export {
   registerUser, loginUser, logoutUser, refreshTokens,
   ChangePassword, getCurrentUser, updateUserDetails, getUserChannelProfile,
