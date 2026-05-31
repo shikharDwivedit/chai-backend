@@ -5,6 +5,7 @@ import {ApiError} from "../utils/ApiError.js"
 import ApiResponse from "../utils/ApiResponse.js"
 import {asyncHandler} from "../utils/asyncHandler.js"
 import { User } from "../models/user.model.js"
+import { Report } from "../models/report.model.js"
 
 // Register as admin
 
@@ -75,4 +76,96 @@ const deleteComment= asyncHandler(async (req,res) => {
 // TODO: add moderateVideoFlags()
 
 
-export {registerAsAdmin, deleteComment, deleteVideo};
+const reviewReports = asyncHandler(async (req, res) => {
+
+    let {
+        status = "pending",
+        type,
+        page = 1,
+        limit = 10
+    } = req.query
+
+    // Convert to numbers
+    page = Number(page)
+    limit = Number(limit)
+
+    // Allowed filters
+    const allowedStatus = ["pending", "resolved", "rejected"]
+    const allowedTypes = ["Video", "Comment", "User"]
+
+    // Validate status
+    if (!allowedStatus.includes(status)) {
+        throw new ApiError(400, "Invalid status type")
+    }
+
+    // Validate target type
+    if (type && !allowedTypes.includes(type)) {
+        throw new ApiError(400, "Invalid report target type")
+    }
+
+    // Build dynamic filter
+    const filter = {
+        status
+    }
+
+    if (type) {
+        filter.targetType = type
+    }
+
+    // Pagination math
+    const skip = (page - 1) * limit
+
+    // Total matching reports
+    const totalReports = await Report.countDocuments(filter)
+
+    // Fetch reports
+    const reports = await Report.find(filter)
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+
+    // Pagination metadata
+    const totalPages = Math.ceil(totalReports / limit)
+
+    return res.status(200).json(
+        new ApiResponse(
+            200,
+            {
+                reports,
+                pagination: {
+                    currentPage: page,
+                    totalPages,
+                    totalReports,
+                    hasNextPage: page < totalPages,
+                    hasPrevPage: page > 1
+                }
+            },
+            "Reports fetched successfully"
+        )
+    )
+})
+
+const suspendUser = asyncHandler(async(req,res)=>{
+    const { user_id } = req.body
+    if(!isValidObjectId(user_id)){
+        throw new ApiError(401,"Please provide a correct user ID.")
+    }
+
+    const remove = await User.findByIdAndUpdate(user_id,{
+        isSuspended:true
+    },
+        {
+            new: true
+        })
+
+    if(!remove){
+        throw new ApiError(400,"This user does not exists");
+    }
+
+    return res
+    .status(200)
+    .json(new ApiResponse(200,null,"User suspeneded successfully."));
+})
+
+
+export {registerAsAdmin, deleteComment, deleteVideo,reviewReports,suspendUser};

@@ -1,6 +1,6 @@
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { ApiError } from "../utils/ApiError.js";
-import redis from "../utils/redis.js"; // your redis client
+import redis from "../services/redis.js";
 
 const MAX_ATTEMPTS = 5;
 const WINDOW_SECONDS = 10 * 60; // 10 minutes

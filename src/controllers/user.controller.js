@@ -4,7 +4,7 @@ import { User } from "../models/user.model.js";
 import { uploadFileOnCloudinary } from "../utils/cloudinary.js";
 import ApiResponse from "../utils/ApiResponse.js";
 import jwt from "jsonwebtoken";
-import mongoose from "mongoose";
+import mongoose, { isValidObjectId } from "mongoose";
 import { validateEmail } from "../utils/validateEmail.js";
 import isEmail from "validator/lib/isEmail.js";
 import { createEmailOtp, generateOtp, verifyEmailOtp } from "../services/emailOtp.service.js";
@@ -147,12 +147,14 @@ const loginUser = asyncHandler(async (req, res) => {
   const user = await User.findOne({   //we are trying to find match based on email or username
     $or: [{ username }, { email }]
   })
-
   if (!user) {
     throw new ApiError(404, "User doesn't exists please signup.")
   }
   if (!user.isVerified) {
     throw new ApiError(403, "Please verify your email before logging in");
+  }
+  if(user.isSuspended){
+    throw new ApiError(400,"Your account is currently suspended.");
   }
   // note we used user not User because the method metioned below is with our mongodb object not mongoose
   const isPasswordValid = await user.isPasswordCorrect(password);
@@ -544,6 +546,33 @@ const resendEmailOtp = asyncHandler(async (req, res) => {
 // TODO: add updateChannelHandle()
 // TODO: add updateNotificationSettings()
 // TODO: add deleteUserAccount()
+
+const deleteUser = asyncHandler(async(req,res)=>{
+  const {userid} = req.user?._id;
+
+  if(!isValidObjectId(userid)){
+    throw new ApiError(400,"This user ID is not valid.")
+  }
+
+  const user = await User.findByIdAndUpdate(userid,
+    {
+      $set:{
+        isDeleted:true,
+        refreshToken:1
+      }
+  },{
+    new:true
+  }
+)
+
+  if(!user){
+    throw new ApiError(400,"No such user exists")
+  }
+
+  return res
+  .status(200)
+  .json(new ApiResponse(200,null,"User removed successfully"))
+})
 export {
   registerUser, loginUser, logoutUser, refreshTokens,
   ChangePassword, getCurrentUser, updateUserDetails, getUserChannelProfile,

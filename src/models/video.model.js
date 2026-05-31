@@ -34,6 +34,16 @@ const videoSchema = new Schema(
         owner:{
             type:Schema.Types.ObjectId,
             ref:"User"
+        },
+        status: {
+            type: String,
+            enum: [
+                "pending",
+                "processing",
+                "ready",
+                "failed"
+            ],
+            default: "pending"
         }
     },
     { timestamps: true }

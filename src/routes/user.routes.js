@@ -3,8 +3,10 @@ import { ChangePassword, getCurrentUser, getUserChannelProfile, getWatchHistory,
     logoutUser, refreshTokens, registerUser, updateUserDetails,verifyEmail,resendEmailOtp } from "../controllers/user.controller.js";
 import {upload} from '../middleware/multer.middleware.js'
 import { verifyJWT } from "../middleware/auth.middleware.js";
-import { updateUserAvatar, updateUserCoverImage } from "../controllers/file.controller.js";
 import { loginRateLimiter } from "../middleware/loginRateLimiter.middleware.js";
+import { updateUserAvatar, updateUserCoverImage } from "../controllers/file.controller.js";
+
+
 const router = Router()
 
 router.route("/register").post(
@@ -25,6 +27,7 @@ router.route("/register").post(
 router.post("/verify-email", verifyEmail);
 router.post("/resend-otp", resendEmailOtp);
 router.route("/login").post(loginRateLimiter,loginUser)
+// router.route("/login").post(loginUser)
 //secured routes
 router.route("/logout").post(verifyJWT,logoutUser)
 router.route("/refreshTokens").post(refreshTokens)

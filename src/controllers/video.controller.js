@@ -7,9 +7,15 @@ import { asyncHandler } from "../utils/asyncHandler.js";
 import { uploadFileOnCloudinary } from "../utils/cloudinary.js";
 import { v2 as cloudinary } from "cloudinary";
 import { extractPublicId } from 'cloudinary-build-url';
+import redis from "../services/redis.js";
+import { getOrSetCache } from "../utils/getOrSetCache.js";
+import videoqueue from "../queue&worker/video.queue.js";
+import logger from "../utils/logger.js";
+
 const publishAVideo = asyncHandler(async (req, res) => {
     const { title, description } = req.body;
     console.log(req.body);
+    console.log(req.files);
 
     if (!title || !description) {
         throw new ApiError(400, "Title, and description are required.");
@@ -24,37 +30,45 @@ const publishAVideo = asyncHandler(async (req, res) => {
     if (!thumbnailLocalPath) {
         throw new ApiError(400, "Thumbnail file is missing or not uploaded properly.");
     }
-
-    const video = await uploadFileOnCloudinary(localVideoPath);
-    const thumbnail = await uploadFileOnCloudinary(thumbnailLocalPath);
-
-    if (!video || !thumbnail) {
-        throw new ApiError(500, "Files weren't uploaded successfully, please try again later.");
-    }
-
+    // all parameters checked. Now we create a job
+    
     const videoDocument = await Video.create({
-        videofile: video.url,
+        videofile:localVideoPath,
         title,
         description,
-        duration: video.duration,
-        thumbnail: thumbnail.url,
-        owner: req.user._id
+        duration:0,
+        thumbnail:thumbnailLocalPath,
+        owner: req.user._id,
+        status: "pending"
     });
-
-    const uploadedVideo = await Video.findById(videoDocument._id);
-    if (!uploadedVideo) {
-        throw new ApiError(500, "Server was unable to process your request, please try again later.");
-    }
-
+    const job = await videoqueue.add(
+        "video-processing",
+        {
+            videoID:videoDocument._id,
+            localVideoPath,
+            thumbnailLocalPath,
+        },
+        {
+            // retries as name suggests it will try n number of times 
+            // before failing if there is no success in any attempt
+            attempts:3,
+            backoff:{
+                // delay in the time taken for retrying. Done to reduce retrying pressure 
+                type:"fixed",
+                delay:3000
+            }
+        }
+    )
+    logger.info(`Job queued successfully: ${job.id}`);
     return res
         .status(200)
-        .json(new ApiResponse(200, uploadedVideo, "Video published successfully."));
+        .json(new ApiResponse(200, {}, "Video Queued for processing."));
 });
 
 const getAllVideos =  asyncHandler(async (req, res) => {
 
-    const { page = 1, limit = 10, query } = req.query;
     //TODO: get all videos based on query, sort, pagination
+    const { page = 1, limit = 10, query } = req.query;
     const pageNum = parseInt(page);
     const limitNum = parseInt(limit);
 
@@ -75,22 +89,27 @@ const getAllVideos =  asyncHandler(async (req, res) => {
 })
 
 const getVideoById = asyncHandler(async (req, res) => {
-    const { videoId } = req.params
     //TODO: get video by id
     // check if the video exists or not if yes then find it
-
+    const { videoId } = req.params;
     if (!isValidObjectId(videoId)) {
         throw new ApiError(200, "Video ID is incorrect.");
     }
 
-    const video = await Video.findById(videoId);
-    if (!video) {
-        throw new ApiError(404, "Video doesn't exist.");
-    }
+    const videoKey = `video:${videoId}`
+
+    const data = await getOrSetCache(
+        videoKey,
+        async() =>{
+            return await Video.findById(videoId).lean();
+        }
+    )
+    
+
 
     return res
         .status(200)
-        .json(new ApiResponse(200, video, "Video fetched successfully."))
+        .json(new ApiResponse(200, data, "Video fetched successfully."))
 })
 
 const updateVideo = asyncHandler(async (req, res) => {
@@ -110,9 +129,23 @@ const updateVideo = asyncHandler(async (req, res) => {
     const updatedfield = {}
     // figuring out which fields are modified
     Object.keys(req.body).forEach(key => {
-        if (req.body[key] !== undefined) {
-            updatedfield[key] = req.body[key]
+
+        const value = req.body[key];
+
+        // skip undefined values
+        if (value === undefined) {
+            return;
         }
+
+        // skip empty strings
+        if (
+            typeof value === "string" &&
+            value.trim() === ""
+        ) {
+            return;
+        }
+
+        updatedfield[key] = value;
     })
 
     if (req.file) {
@@ -142,6 +175,9 @@ const updateVideo = asyncHandler(async (req, res) => {
     if (!updatedVideo) {
         throw new ApiError(401, "The given video doesn't exist.");
     }
+
+    // updating invalid cache after update
+    await redis.del(`video:${videoId}`);
 
     return res
         .status(200)
