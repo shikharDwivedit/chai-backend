@@ -44,10 +44,20 @@ const videoSchema = new Schema(
                 "failed"
             ],
             default: "pending"
+        },
+        tags: {
+            type: [String],
+            default: []
         }
     },
     { timestamps: true }
 )
+
+videoSchema.index({
+    title: "text",
+    description: "text",
+    tags: "text"
+});
 
 videoSchema.plugin(mongooseAggregatePaginate)
 

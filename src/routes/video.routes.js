@@ -1,9 +1,18 @@
 import { Router } from "express";
-import { publishAVideo,updateVideo, deleteVideo, togglePublishStatus,getAllVideos, getVideoById } from "../controllers/video.controller.js";
+import { publishAVideo,updateVideo, deleteVideo, togglePublishStatus,getAllVideos, getVideoById, cloudinaryWebHookHandler } from "../controllers/video.controller.js";
 import { verifyJWT } from "../middleware/auth.middleware.js";
-import { upload } from "../middleware/multer.middleware.js";
+import { generateUploadSignature } from "../services/video.signature.js";
+import { verifyCloudinaryWebhook } from "../middleware/verifyCloudinaryWebhook.middleware.js";
 
 const router = Router();
+import express from "express";
+
+router.post(
+  "/cloudinary",
+  express.raw({ type: "*/*" }),
+  verifyCloudinaryWebhook,
+  cloudinaryWebHookHandler
+);
 
 router.use(verifyJWT);
 router
@@ -14,23 +23,14 @@ router
 .route("/")
 .get(getAllVideos)
 .post(
-    upload.fields([
-        { name: "videofile", maxCount: 1 },
-        { name: "thumbnail", maxCount: 1 }
-    ]),
-    publishAVideo
+    generateUploadSignature
 );
 
 
 router
     .route("/:videoId")
     .delete(deleteVideo)
-    .patch(upload.fields([
-            { name: "videofile", maxCount: 1 },
-            { name: "thumbnail", maxCount: 1 }
-        ]),
-        updateVideo
-    );
+    .patch(updateVideo);
 
 router.route("/toggle/publish/:videoId").patch(togglePublishStatus);
 

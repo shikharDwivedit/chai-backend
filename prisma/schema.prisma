@@ -1,0 +1,51 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+
+enum StreamStatus {
+  SCHEDULED
+  LIVE
+  ENDED
+}
+
+enum Visibility {
+  PUBLIC
+  PRIVATE
+
+}
+model Stream {
+  id              String @id @default(uuid())
+  ownerId         String
+  title           String
+  description     String?
+
+  streamKeyHash   String @unique
+  status          StreamStatus @default(SCHEDULED)
+  visibility      Visibility @default(PUBLIC)
+
+  recordingUrl    String?
+  thumbnailUrl    String?
+
+  startedAt       DateTime?
+  endedAt         DateTime?
+
+  duration        Int?
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([ownerId])
+  @@index([status])
+  @@index([createdAt])
+}

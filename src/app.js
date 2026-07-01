@@ -12,8 +12,10 @@ app.use(cors({
 
 //This simply parse the incoming raw string request to a javascript object and puts it in req.body
 app.use(express.json({
-    limit:"16kb"
-}))
+  verify: (req, res, buf) => {
+    req.rawBody = buf.toString("utf8");
+  }
+}));
 // This one simply extracts data from the url
 app.use(express.urlencoded({limit:"16kb"}))
 // This one simply stores files(pdf, image, or audio) in a public file
@@ -29,8 +31,8 @@ import tweetRouter from "./routes/tweet.routes.js"
 import dashboardRouter from "./routes/dashboard.routes.js"
 import playlistRouter from "./routes/playlist.routes.js"
 import adminRouter from "./routes/admin.routes.js"
-import report from "./routes/report.routes.js"
-import test from "./routes/test.routes.js"
+import reportRouter from "./routes/report.routes.js"
+
 // As our routes is in different location hence we can't use app.get
 // routes decalartion
 app.use("/api/v1/users",userRouter);
@@ -40,7 +42,5 @@ app.use("/api/v1/tweets", tweetRouter);
 app.use("/api/v1/dashboard", dashboardRouter);
 app.use("/api/v1/playlist", playlistRouter);
 app.use("/api/v1/admin", adminRouter);
-app.use("/api/v1/report",report)
-app.use("/api/v1/test",test)
-
+app.use("/api/v1/report",reportRouter);
 export {app}
